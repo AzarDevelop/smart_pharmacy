@@ -4,21 +4,29 @@ import { useAuth } from '../context/AuthContext';
 import {
   Conversation,
   ConversationContent,
+  ConversationScrollButton,
   Message,
   MessageContent,
-  ThinkingIndicator,
-  SuggestionPrompt,
+  MessageResponse,
+  MessageToolbar,
+  MessageActions,
+  MessageAction,
+  MessageCopy,
+  Reasoning,
+  Suggestions,
+  Suggestion,
   ToolCallResultCard
-} from '../components/AIElements';
+} from '../components/ai-elements';
 
 export default function CustomerChat() {
   const { user } = useAuth();
   const [coords, setCoords] = useState(null);
+  const [feedback, setFeedback] = useState({});
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'assistant',
-      text: "Hello! I am your AI Licensed Pharmacy Consultant 💊.\nTell me your symptoms, ask about medicine dosage, or request approved generic alternatives.\nI will stream advice in real-time and show live nearby pharmacy stock for 1-click reservations.",
+      text: "Hello! I am your AI Licensed Pharmacy Consultant 💊.\nTell me your symptoms, ask about medicine dosage, or request approved generic alternatives.\nI will stream clinical advice in real-time and show live nearby pharmacy stock for 1-click reservations.",
       stocks: []
     }
   ]);
@@ -46,11 +54,24 @@ export default function CustomerChat() {
     scrollToBottom();
   }, [messages, isStreaming]);
 
-  const handleSend = async (e) => {
-    e?.preventDefault();
-    if (!input.trim() || isStreaming) return;
+  const handleToggleFeedback = (id, type) => {
+    setFeedback((prev) => ({
+      ...prev,
+      [id]: prev[id] === type ? null : type
+    }));
+  };
 
-    const userText = input.trim();
+  const handleRetry = (lastUserMsgText) => {
+    if (!lastUserMsgText || isStreaming) return;
+    setInput(lastUserMsgText);
+  };
+
+  const handleSend = async (e, customText) => {
+    e?.preventDefault();
+    const textToSend = (customText || input).trim();
+    if (!textToSend || isStreaming) return;
+
+    const userText = textToSend;
     const userMsgId = Date.now().toString();
     const aiMsgId = (Date.now() + 1).toString();
 
@@ -58,7 +79,7 @@ export default function CustomerChat() {
     setMessages((prev) => [
       ...prev,
       { id: userMsgId, sender: 'user', text: userText, stocks: [] },
-      { id: aiMsgId, sender: 'assistant', text: '', isThinking: true, stocks: [] }
+      { id: aiMsgId, sender: 'assistant', text: '', isThinking: true, stocks: [], promptText: userText }
     ]);
     setInput('');
     setIsStreaming(true);
@@ -213,7 +234,7 @@ export default function CustomerChat() {
   ];
 
   return (
-    <div className="page container" style={{ maxWidth: 860 }}>
+    <div className="page container" style={{ maxWidth: 880 }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -222,12 +243,12 @@ export default function CustomerChat() {
               ✨ AI Elements Pharmacy Assistant & Live Reservation
             </h1>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>
-              AI-native conversational interface powered by AI Elements, real-time SSE streaming, and 1-click reservations.
+              AI-native conversational interface powered by @/components/ai-elements suite with streaming & 1-click reservations.
             </p>
           </div>
           <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-teal-700)' }}></span>
-            AI Elements Active
+            AI Elements Suite Active
           </span>
         </div>
       </div>
@@ -243,20 +264,72 @@ export default function CustomerChat() {
 
       {/* AI Elements Conversation Container */}
       <div className="card" style={{
-        padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '640px',
-        boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border)'
+        padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '650px',
+        boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border)', position: 'relative'
       }}>
-        <Conversation>
-          <ConversationContent messagesEndRef={messagesEndRef}>
+        <Conversation style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <ConversationContent style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
             {messages.map((msg) => (
               <Message key={msg.id} from={msg.sender}>
                 <MessageContent from={msg.sender}>
                   {msg.isThinking && !msg.text ? (
-                    <ThinkingIndicator text="Consultant agent reasoning & analyzing pharmacy catalogue…" />
+                    <Reasoning isStreaming={true} defaultOpen={true} />
                   ) : (
-                    msg.text
+                    <>
+                      {msg.sender === 'assistant' && msg.promptText && (
+                        <Reasoning
+                          title="Prescription Safety & Interaction Review"
+                          defaultOpen={false}
+                        >
+                          <div className="text-xs text-slate-600">
+                            Evaluated symptoms, checked contraindications, verified regulatory dosage schedules, and queried live nearby pharmacy stock.
+                          </div>
+                        </Reasoning>
+                      )}
+                      <MessageResponse>{msg.text}</MessageResponse>
+                    </>
                   )}
                 </MessageContent>
+
+                {/* AI Elements Message Actions Toolbar */}
+                {msg.sender === 'assistant' && msg.text && !msg.isThinking && (
+                  <MessageToolbar>
+                    <MessageActions>
+                      <MessageCopy text={msg.text} />
+                      {msg.promptText && (
+                        <MessageAction
+                          label="Retry"
+                          tooltip="Retry prompt"
+                          onClick={() => handleRetry(msg.promptText)}
+                        >
+                          🔄
+                        </MessageAction>
+                      )}
+                      <MessageAction
+                        label="Helpful"
+                        tooltip="Good medical advice"
+                        onClick={() => handleToggleFeedback(msg.id, 'like')}
+                        style={{
+                          background: feedback[msg.id] === 'like' ? '#E3F2EF' : 'transparent',
+                          color: feedback[msg.id] === 'like' ? '#0F5F56' : 'inherit'
+                        }}
+                      >
+                        👍
+                      </MessageAction>
+                      <MessageAction
+                        label=""
+                        tooltip="Needs improvement"
+                        onClick={() => handleToggleFeedback(msg.id, 'dislike')}
+                        style={{
+                          background: feedback[msg.id] === 'dislike' ? '#FEE2E2' : 'transparent',
+                          color: feedback[msg.id] === 'dislike' ? '#B91C1C' : 'inherit'
+                        }}
+                      >
+                        👎
+                      </MessageAction>
+                    </MessageActions>
+                  </MessageToolbar>
+                )}
 
                 {/* AI Elements In-Chat Tool Stock Result Cards */}
                 {msg.stocks && msg.stocks.length > 0 && (
@@ -276,19 +349,19 @@ export default function CustomerChat() {
                 )}
               </Message>
             ))}
+            <div ref={messagesEndRef} />
           </ConversationContent>
 
+          <ConversationScrollButton />
+
           {/* AI Elements Quick Suggestion Prompts */}
-          <div style={{
-            padding: '10px 18px', background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)',
-            display: 'flex', gap: 8, overflowX: 'auto', whiteSpace: 'nowrap'
-          }}>
+          <Suggestions>
             {QUICK_QUESTIONS.map((q, idx) => (
-              <SuggestionPrompt key={idx} onClick={() => setInput(q)}>
-                💬 {q}
-              </SuggestionPrompt>
+              <Suggestion key={idx} onClick={() => setInput(q)}>
+                {q}
+              </Suggestion>
             ))}
-          </div>
+          </Suggestions>
 
           {/* Input Bar */}
           <form onSubmit={handleSend} style={{
@@ -325,6 +398,3 @@ export default function CustomerChat() {
     </div>
   );
 }
-
-
-
