@@ -107,12 +107,14 @@ function Inventory({ pharmacyId }) {
   const [catalogue, setCatalogue] = useState([]);
   const [form, setForm] = useState({ medicine_id: '', price: '', quantity: '', low_stock_threshold: 10 });
 
-  const load = () => api.get(`/pharmacy/${pharmacyId}/inventory`).then(({ data }) => setItems(data));
+  const load = React.useCallback(() => {
+    api.get(`/pharmacy/${pharmacyId}/inventory`).then(({ data }) => setItems(data));
+  }, [pharmacyId]);
 
   useEffect(() => {
     load();
     api.get('/medicines').then(({ data }) => setCatalogue(data));
-  }, [pharmacyId]);
+  }, [pharmacyId, load]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -274,8 +276,10 @@ function Stat({ label, value }) {
 
 function PharmacyReservations({ pharmacyId }) {
   const [items, setItems] = useState([]);
-  const load = () => api.get(`/pharmacy/${pharmacyId}/reservations`).then(({ data }) => setItems(data));
-  useEffect(() => { load(); }, [pharmacyId]);
+  const load = React.useCallback(() => {
+    api.get(`/pharmacy/${pharmacyId}/reservations`).then(({ data }) => setItems(data));
+  }, [pharmacyId]);
+  useEffect(() => { load(); }, [pharmacyId, load]);
 
   const updateStatus = async (id, status) => {
     await api.patch(`/reservations/${id}/status`, { status });

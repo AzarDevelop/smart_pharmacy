@@ -21,12 +21,13 @@ exports.register = async (req, res) => {
     const finalRole = ['customer', 'pharmacy', 'admin'].includes(role) ? role : 'customer';
 
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?) RETURNING user_id',
       [name, email, hashedPassword, phone || null, finalRole]
     );
+    const userId = result[0]?.user_id || result?.insertId;
 
     const token = jwt.sign(
-      { user_id: result.insertId, role: finalRole, name },
+      { user_id: userId, role: finalRole, name },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -34,7 +35,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       message: 'Account created successfully.',
       token,
-      user: { user_id: result.insertId, name, email, role: finalRole }
+      user: { user_id: userId, name, email, role: finalRole }
     });
   } catch (err) {
     console.error(err);

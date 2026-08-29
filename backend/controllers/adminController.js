@@ -32,12 +32,18 @@ exports.deleteUser = async (req, res) => {
 
 // GET /api/admin/reports/overview - system-wide monitoring dashboard numbers
 exports.getOverview = async (req, res) => {
-  const [[{ userCount }]] = await pool.query('SELECT COUNT(*) AS userCount FROM users');
-  const [[{ pharmacyCount }]] = await pool.query('SELECT COUNT(*) AS pharmacyCount FROM pharmacies');
-  const [[{ medicineCount }]] = await pool.query('SELECT COUNT(*) AS medicineCount FROM medicines');
-  const [[{ reservationCount }]] = await pool.query('SELECT COUNT(*) AS reservationCount FROM reservations');
-  const [[{ lowStockCount }]] = await pool.query(
-    'SELECT COUNT(*) AS lowStockCount FROM pharmacy_medicines WHERE quantity <= low_stock_threshold'
+  const [[userRow]] = await pool.query('SELECT COUNT(*) AS "userCount" FROM users');
+  const [[pharmacyRow]] = await pool.query('SELECT COUNT(*) AS "pharmacyCount" FROM pharmacies');
+  const [[medicineRow]] = await pool.query('SELECT COUNT(*) AS "medicineCount" FROM medicines');
+  const [[reservationRow]] = await pool.query('SELECT COUNT(*) AS "reservationCount" FROM reservations');
+  const [[lowStockRow]] = await pool.query(
+    'SELECT COUNT(*) AS "lowStockCount" FROM pharmacy_medicines WHERE quantity <= low_stock_threshold'
   );
-  res.json({ userCount, pharmacyCount, medicineCount, reservationCount, lowStockCount });
+  res.json({
+    userCount: parseInt(userRow?.userCount || 0, 10),
+    pharmacyCount: parseInt(pharmacyRow?.pharmacyCount || 0, 10),
+    medicineCount: parseInt(medicineRow?.medicineCount || 0, 10),
+    reservationCount: parseInt(reservationRow?.reservationCount || 0, 10),
+    lowStockCount: parseInt(lowStockRow?.lowStockCount || 0, 10)
+  });
 };

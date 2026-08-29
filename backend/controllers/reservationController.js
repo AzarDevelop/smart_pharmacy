@@ -2,7 +2,7 @@ const pool = require('../config/db');
 
 // POST /api/reservations - customer reserves a medicine for pickup
 exports.createReservation = async (req, res) => {
-  const conn = await pool.getConnection();
+  const conn = await pool.getClient();
   try {
     const { pharmacy_id, medicine_id, quantity } = req.body;
     if (!pharmacy_id || !medicine_id) {
@@ -27,9 +27,10 @@ exports.createReservation = async (req, res) => {
 
     const [result] = await conn.query(
       `INSERT INTO reservations (user_id, pharmacy_id, medicine_id, quantity, status, pickup_by)
-       VALUES (?, ?, ?, ?, 'pending', ?)`,
+       VALUES (?, ?, ?, ?, 'pending', ?) RETURNING reservation_id`,
       [req.user.user_id, pharmacy_id, medicine_id, qty, pickupBy]
     );
+    const reservationId = result[0]?.reservation_id || result?.insertId;
 
     // Soft-hold the stock so it isn't double booked
     await conn.query(
@@ -38,7 +39,7 @@ exports.createReservation = async (req, res) => {
     );
 
     await conn.commit();
-    res.status(201).json({ message: 'Medicine reserved. Please collect it within 24 hours.', reservation_id: result.insertId });
+    res.status(201).json({ message: 'Medicine reserved. Please collect it within 24 hours.', reservation_id: reservationId });
   } catch (err) {
     await conn.rollback();
     console.error(err);

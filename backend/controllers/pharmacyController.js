@@ -13,10 +13,11 @@ exports.createPharmacy = async (req, res) => {
     }
     const [result] = await pool.query(
       `INSERT INTO pharmacies (owner_id, name, address, city, latitude, longitude, phone)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING pharmacy_id`,
       [req.user.user_id, name, address, city, latitude || null, longitude || null, phone || null]
     );
-    res.status(201).json({ message: 'Pharmacy profile created.', pharmacy_id: result.insertId });
+    const pharmacyId = result[0]?.pharmacy_id || result?.insertId;
+    res.status(201).json({ message: 'Pharmacy profile created.', pharmacy_id: pharmacyId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Could not create pharmacy profile.' });
@@ -77,8 +78,11 @@ exports.upsertStock = async (req, res) => {
     await pool.query(
       `INSERT INTO pharmacy_medicines (pharmacy_id, medicine_id, price, quantity, low_stock_threshold)
        VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE price = VALUES(price), quantity = VALUES(quantity),
-                               low_stock_threshold = VALUES(low_stock_threshold)`,
+       ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
+         price = EXCLUDED.price,
+         quantity = EXCLUDED.quantity,
+         low_stock_threshold = EXCLUDED.low_stock_threshold,
+         updated_at = CURRENT_TIMESTAMP`,
       [id, medicine_id, price, quantity, low_stock_threshold || 10]
     );
 
