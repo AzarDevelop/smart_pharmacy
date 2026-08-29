@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
+import { LoadingState } from '../components/Spinner';
 
 const TABS = ['Inventory', 'Low Stock Alerts', 'Demand Prediction', 'Reservations'];
 
@@ -21,7 +22,7 @@ export default function PharmacyDashboard() {
     return <CreatePharmacy onCreated={(p) => { setPharmacies([p]); setActivePharmacy(p); setShowCreate(false); }} />;
   }
 
-  if (!activePharmacy) return <div className="page container">Loading…</div>;
+  if (!activePharmacy) return <div className="page container"><LoadingState text="Loading pharmacy dashboard…" /></div>;
 
   return (
     <div className="page container">

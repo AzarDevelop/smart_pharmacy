@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
+import { LoadingState } from '../components/Spinner';
 
 const statusColor = { pending: 'badge-amber', confirmed: 'badge-green', ready: 'badge-green', completed: 'badge-green', cancelled: 'badge-red' };
 
@@ -25,7 +26,7 @@ export default function Reservations() {
     <div className="page container" style={{ maxWidth: 780 }}>
       <h2 style={{ marginBottom: 20 }}>My Reservations</h2>
 
-      {loading && <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>}
+      {loading && <LoadingState text="Fetching your reservations…" />}
 
       {!loading && reservations.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>

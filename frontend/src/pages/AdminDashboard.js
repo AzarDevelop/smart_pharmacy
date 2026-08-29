@@ -1,26 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
+import { LoadingState } from '../components/Spinner';
 
 export default function AdminDashboard() {
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
   const [pharmacies, setPharmacies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const [o, u, p] = await Promise.all([
-      api.get('/admin/reports/overview'),
-      api.get('/admin/users'),
-      api.get('/admin/pharmacies')
-    ]);
-    setOverview(o.data);
-    setUsers(u.data);
-    setPharmacies(p.data);
+    setLoading(true);
+    try {
+      const [o, u, p] = await Promise.all([
+        api.get('/admin/reports/overview'),
+        api.get('/admin/users'),
+        api.get('/admin/pharmacies')
+      ]);
+      setOverview(o.data);
+      setUsers(u.data);
+      setPharmacies(p.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const verify = async (id) => { await api.patch(`/admin/pharmacies/${id}/verify`); load(); };
   const removeUser = async (id) => { if (window.confirm('Remove this user?')) { await api.delete(`/admin/users/${id}`); load(); } };
+
+  if (loading && !overview) {
+    return <div className="page container"><LoadingState text="Loading administrative overview…" /></div>;
+  }
 
   return (
     <div className="page container">

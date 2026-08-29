@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Spinner from '../components/Spinner';
 
 const DEFAULT_USERS = [
   {
@@ -121,8 +122,9 @@ export default function Login() {
               onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
           </div>
           <button className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Logging in…' : 'Log in'}
+            {loading ? <Spinner size="sm" label="Logging in…" /> : 'Log in'}
           </button>
+
         </form>
 
         <p style={{ marginTop: 20, fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center' }}>

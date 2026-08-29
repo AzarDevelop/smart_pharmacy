@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import Spinner, { LoadingState } from '../components/Spinner';
 
 export default function SearchMedicine() {
   const { user } = useAuth();
@@ -68,16 +69,19 @@ export default function SearchMedicine() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button className="btn btn-primary" disabled={loading} style={{ whiteSpace: 'nowrap' }}>
-          {loading ? 'Searching…' : 'Search'}
+        <button className="btn btn-primary" disabled={loading} style={{ whiteSpace: 'nowrap', minWidth: 120 }}>
+          {loading ? <Spinner size="sm" label="Searching…" /> : '🔍 Search'}
         </button>
       </form>
 
-      {!coords && (
+      {loading && <LoadingState text="AI analyzing catalogue & live stock across pharmacies…" />}
+
+      {!coords && !loading && (
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
-          Enable location access to sort results by distance.
+          📍 Enable location access to sort results by distance.
         </p>
       )}
+
 
       {message && (
         <div style={{ maxWidth: 640, margin: '0 auto 20px', background: 'var(--color-teal-100)', color: 'var(--color-teal-900)', padding: '10px 14px', borderRadius: 8, fontSize: 13, textAlign: 'center' }}>
