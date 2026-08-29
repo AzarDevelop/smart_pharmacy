@@ -132,15 +132,22 @@ compatApp.post("/predict-demand", async (c) => {
 });
 
 // POST /consult
-// Direct consultation endpoint
+// Direct consultation & medicine recommendation endpoint
 compatApp.post("/consult", async (c) => {
   try {
-    const { question } = await c.req.json();
+    const { question, catalogue } = await c.req.json();
     if (!question) return c.json({ message: "question is required" }, 400);
 
-    const result = await pharmacyConsultantAgent.generateText(question);
+    let prompt = question;
+    if (catalogue && Array.isArray(catalogue) && catalogue.length > 0) {
+      prompt = `User health inquiry: "${question}"\n\nAvailable Pharmacy Catalogue:\n${JSON.stringify(catalogue.map((m: any) => ({ name: m.name, generic: m.generic_name, category: m.category, prescription: m.requires_prescription })))}\n\nPlease advise the patient medically and mention any specific medicines from this catalogue if appropriate. Remind them if a prescription is required.`;
+    }
+
+    const result = await pharmacyConsultantAgent.generateText(prompt);
     return c.json({ answer: result.text });
   } catch (err: any) {
+    console.error("Error in /consult:", err);
     return c.json({ error: err.message }, 500);
   }
 });
+

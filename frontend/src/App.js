@@ -7,6 +7,7 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SearchMedicine from './pages/SearchMedicine';
+import CustomerChat from './pages/CustomerChat';
 import Reservations from './pages/Reservations';
 import PharmacyDashboard from './pages/PharmacyDashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -18,6 +19,7 @@ export default function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<SearchMedicine />} />
+          <Route path="/chat" element={<CustomerChat />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reservations" element={
@@ -34,3 +36,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

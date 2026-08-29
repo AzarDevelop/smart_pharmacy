@@ -27,9 +27,13 @@ export default function Navbar() {
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Link to="/" className="btn btn-ghost">Search</Link>
+          <Link to="/chat" className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span>🤖 AI Assistant</span>
+          </Link>
           {user && <Link to="/reservations" className="btn btn-ghost">My Reservations</Link>}
           {user && user.role === 'pharmacy' && <Link to="/pharmacy" className="btn btn-ghost">Pharmacy Dashboard</Link>}
           {user && user.role === 'admin' && <Link to="/admin" className="btn btn-ghost">Admin</Link>}
+
 
           {!user && (
             <>

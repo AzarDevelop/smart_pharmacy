@@ -122,10 +122,81 @@ exports.getAvailability = async (req, res) => {
       distance_km: lat && lng ? distanceKm(parseFloat(lat), parseFloat(lng), row.latitude, row.longitude) : null
     }));
     results.sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
-
     res.json(results);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Could not fetch availability.' });
   }
 };
+
+// POST /api/medicines/consult
+// Proxies conversational pharmacy AI questions and returns recommendations + available stocks
+exports.consultWithAI = async (req, res) => {
+
+  try {
+    const { question, lat, lng } = req.body;
+    if (!question || !question.trim()) {
+      return res.status(400).json({ message: 'Please provide a health or medicine question.' });
+    }
+
+    // 1. Fetch available catalogue medicines for context
+    const [catalogue] = await pool.query('SELECT medicine_id, name, generic_name, category, requires_prescription FROM medicines');
+
+    // 2. Call AI service /consult endpoint
+    let aiAnswer = '';
+    try {
+      const aiResponse = await axios.post(`${AI_SERVICE_URL}/consult`, {
+        question,
+        catalogue
+      });
+      aiAnswer = aiResponse.data.answer || aiResponse.data.text || '';
+    } catch (aiErr) {
+      console.warn('AI consult service error:', aiErr.message);
+      aiAnswer = "I am an AI Pharmacy Assistant. Based on your query, please review the recommended medicines below or consult a licensed physician for acute symptoms.";
+    }
+
+    // 3. Find any medicines from catalogue that match the user question or answer
+    const qLower = question.toLowerCase();
+    const aLower = aiAnswer.toLowerCase();
+    const relevantMeds = catalogue.filter((m) => {
+      const nameL = m.name.toLowerCase();
+      const genL = (m.generic_name || '').toLowerCase();
+      return qLower.includes(nameL.split(' ')[0]) || qLower.includes(genL) ||
+             aLower.includes(nameL.split(' ')[0]) || aLower.includes(genL);
+    });
+
+    let stockResults = [];
+    if (relevantMeds.length > 0) {
+      const matchedIds = relevantMeds.map((m) => m.medicine_id);
+      const placeholders = matchedIds.map(() => '?').join(',');
+      const [stocks] = await pool.query(
+        `SELECT pm.stock_id, pm.quantity, pm.price,
+                m.medicine_id, m.name AS medicine_name, m.generic_name, m.requires_prescription,
+                p.pharmacy_id, p.name AS pharmacy_name, p.address, p.city, p.phone,
+                p.latitude, p.longitude
+         FROM pharmacy_medicines pm
+         JOIN medicines m ON pm.medicine_id = m.medicine_id
+         JOIN pharmacies p ON pm.pharmacy_id = p.pharmacy_id
+         WHERE pm.medicine_id IN (${placeholders}) AND pm.quantity > 0`,
+        matchedIds
+      );
+
+      stockResults = stocks.map((row) => ({
+        ...row,
+        distance_km: lat && lng ? distanceKm(parseFloat(lat), parseFloat(lng), row.latitude, row.longitude) : null
+      }));
+
+      stockResults.sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
+    }
+
+    res.json({
+      answer: aiAnswer,
+      suggestedMedicines: relevantMeds,
+      availableStocks: stockResults
+    });
+  } catch (err) {
+    console.error('Error in consultWithAI:', err);
+    res.status(500).json({ message: 'Error consulting AI pharmacy assistant.' });
+  }
+};
+
