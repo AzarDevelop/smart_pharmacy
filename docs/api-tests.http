@@ -1,0 +1,148 @@
+### Smart Pharmacy API - manual tests
+### Open in VS Code with the "REST Client" extension, or copy the URLs into Postman.
+### Run the requests top to bottom; the @token variables fill themselves from the login responses.
+
+@base = http://localhost:5000/api
+
+### 1. Health check
+GET {{base}}/health
+
+### 2. Search - exact name
+GET {{base}}/medicines?search=paracetamol
+
+### 3. Search - brand name
+GET {{base}}/medicines?search=Dolo
+
+### 4. Search - generic name
+GET {{base}}/medicines?search=Acetaminophen
+
+### 5. Search - partial text
+GET {{base}}/medicines?search=para
+
+### 6. Search - misspelled (should return matchType "fuzzy")
+GET {{base}}/medicines?search=paracetmol
+
+### 7. Search - no match (matchType "none")
+GET {{base}}/medicines?search=zzzzzz
+
+### 8. Categories
+GET {{base}}/categories
+
+### 9. Nearby pharmacies around T Nagar, Chennai
+GET {{base}}/pharmacies/nearby?lat=13.0418&lng=80.2341&distance=10
+
+### ---------------------------------------------------------------
+### CUSTOMER
+### ---------------------------------------------------------------
+
+# @name userLogin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "ravi@example.com", "password": "User@123" }
+
+###
+@userToken = {{userLogin.response.body.token}}
+
+### Current account
+GET {{base}}/auth/me
+Authorization: Bearer {{userToken}}
+
+### My reservations
+GET {{base}}/reservations/my
+Authorization: Bearer {{userToken}}
+
+### Notifications
+GET {{base}}/notifications
+Authorization: Bearer {{userToken}}
+
+### Reserve a medicine
+### Replace INVENTORY_ID with an _id from GET /medicines/:id availability list
+POST {{base}}/reservations
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{ "inventoryId": "INVENTORY_ID", "quantity": 2 }
+
+### Role check - a customer must NOT be able to read admin stats (expect 403)
+GET {{base}}/admin/stats
+Authorization: Bearer {{userToken}}
+
+### ---------------------------------------------------------------
+### PHARMACY
+### ---------------------------------------------------------------
+
+# @name pharmacyLogin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "apollo@pharmacy.com", "password": "Pharma@123" }
+
+###
+@pharmacyToken = {{pharmacyLogin.response.body.token}}
+
+### Dashboard stats
+GET {{base}}/inventory/stats
+Authorization: Bearer {{pharmacyToken}}
+
+### Inventory
+GET {{base}}/inventory
+Authorization: Bearer {{pharmacyToken}}
+
+### Low stock
+GET {{base}}/inventory/low-stock
+Authorization: Bearer {{pharmacyToken}}
+
+### Reservations received
+GET {{base}}/reservations/pharmacy
+Authorization: Bearer {{pharmacyToken}}
+
+### Update stock and price (replace INVENTORY_ID)
+PUT {{base}}/inventory/INVENTORY_ID
+Authorization: Bearer {{pharmacyToken}}
+Content-Type: application/json
+
+{ "price": 32.50, "stock": 8 }
+
+### ---------------------------------------------------------------
+### ADMIN
+### ---------------------------------------------------------------
+
+# @name adminLogin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@pharma.com", "password": "Admin@123" }
+
+###
+@adminToken = {{adminLogin.response.body.token}}
+
+### System statistics
+GET {{base}}/admin/stats
+Authorization: Bearer {{adminToken}}
+
+### Recent activity
+GET {{base}}/admin/activities
+Authorization: Bearer {{adminToken}}
+
+### All customers
+GET {{base}}/admin/users?role=user
+Authorization: Bearer {{adminToken}}
+
+### All pharmacies (including blocked ones)
+GET {{base}}/pharmacies?all=1
+Authorization: Bearer {{adminToken}}
+
+### All reservations
+GET {{base}}/reservations
+Authorization: Bearer {{adminToken}}
+
+### Add a category
+POST {{base}}/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "Skin Care", "description": "Dermatology medicines" }
+
+### No token at all - expect 401
+GET {{base}}/inventory
