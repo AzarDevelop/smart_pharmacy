@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Spinner from '../components/Spinner';
 
 export default function Register() {
   const { register } = useAuth();
@@ -59,7 +60,7 @@ export default function Register() {
             </select>
           </div>
           <button className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? <Spinner size="sm" label="Creating account…" /> : 'Sign up'}
           </button>
         </form>
 

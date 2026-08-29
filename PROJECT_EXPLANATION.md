@@ -189,3 +189,124 @@ $$\hat{y}_{\text{day } k} = \max(1, \text{round}(m \cdot k + c))$$
 | 👤 **Customer** | `customer@pharmacy.com` | `password123` | Search medicines, live reservations, distance sorting |
 | 🏥 **Pharmacy Owner** | `pharmacy@pharmacy.com` | `password123` | Linked to *CarePlus Central Pharmacy* with live stock & sales data |
 | 🛡️ **System Admin** | `admin@pharmacy.com` | `password123` | Full dashboard stats, pharmacy verification controls |
+
+---
+
+## 7. VoltAgent Agent API Endpoints Reference
+
+The AI Microservice (running on **`http://localhost:8000`**) exposes both **VoltAgent Standard Agent Endpoints** and **Compatibility Endpoints**.
+
+### 🌟 Swagger Interactive Documentation
+- **URL**: [http://localhost:8000/ui](http://localhost:8000/ui)
+- View schemas, test live agent calls, and inspect parameter specifications interactively.
+
+---
+
+### 📡 Standard Agent Endpoints (`/agents/*`)
+
+#### 1. List All Registered Agents
+- **Endpoint**: `GET /agents`
+- **Description**: Returns all active agents, model details, registered tools, and memory status.
+- **cURL**:
+  ```bash
+  curl http://localhost:8000/agents
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "MedicineSearchAgent",
+        "name": "MedicineSearchAgent",
+        "status": "idle",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "tools": [{ "id": "fuzzy_match_calculator", "name": "fuzzy_match_calculator" }]
+      },
+      {
+        "id": "DemandPredictionAgent",
+        "name": "DemandPredictionAgent",
+        "status": "idle",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "tools": [{ "id": "trend_calculator", "name": "trend_calculator" }]
+      },
+      {
+        "id": "PharmacyConsultantAgent",
+        "name": "PharmacyConsultantAgent",
+        "status": "idle",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "tools": []
+      }
+    ]
+  }
+  ```
+
+---
+
+#### 2. Synchronous Agent Execution (`POST /agents/:id/text`)
+- **Endpoint**: `POST /agents/:id/text`
+- **Description**: Synchronously sends prompts or conversation history to an agent and receives the result.
+- **cURL**:
+  ```bash
+  curl -X POST http://localhost:8000/agents/PharmacyConsultantAgent/text \
+    -H "Content-Type: application/json" \
+    -d '{
+      "input": "What are common OTC alternatives for mild headache?",
+      "options": {
+        "temperature": 0.7,
+        "maxOutputTokens": 300
+      }
+    }'
+  ```
+
+---
+
+#### 3. Real-Time Streaming (`POST /agents/:id/stream` or `POST /agents/:id/chat`)
+- **Endpoint**: `POST /agents/:id/stream` (Raw SSE events) or `POST /agents/:id/chat` (Vercel AI SDK `useChat` compatible)
+- **Description**: Streams text generation and tool call execution events real-time via Server-Sent Events (SSE).
+- **cURL**:
+  ```bash
+  curl -N -X POST http://localhost:8000/agents/PharmacyConsultantAgent/chat \
+    -H "Content-Type: application/json" \
+    -d '{
+      "input": "Can I take Ibuprofen with Paracetamol?",
+      "options": { "temperature": 0.7 }
+    }'
+  ```
+
+---
+
+#### 4. Structured JSON Output with Tool Execution (`output` option)
+- **Endpoint**: `POST /agents/:id/text` with structured JSON schema.
+- **cURL**:
+  ```bash
+  curl -X POST http://localhost:8000/agents/MedicineSearchAgent/text \
+    -H "Content-Type: application/json" \
+    -d '{
+      "input": "Query: paracitamol. Catalogue: [{\"id\":1,\"name\":\"Paracetamol 500mg\"}]",
+      "options": {
+        "output": {
+          "type": "object",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "matches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "number" },
+                    "name": { "type": "string" },
+                    "score": { "type": "number" }
+                  },
+                  "required": ["id", "name", "score"]
+                }
+              }
+            },
+            "required": ["matches"]
+          }
+        }
+      }
+    }'
+  ```
+

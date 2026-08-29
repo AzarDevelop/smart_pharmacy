@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
-import { LoadingState } from '../components/Spinner';
+import Spinner, { LoadingState } from '../components/Spinner';
 
 const TABS = ['Inventory', 'Low Stock Alerts', 'Demand Prediction', 'Reservations'];
 
@@ -67,9 +67,14 @@ function CreatePharmacy({ onCreated }) {
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { data } = await api.post('/pharmacy', form);
-    onCreated({ ...form, pharmacy_id: data.pharmacy_id, is_verified: false });
-    setLoading(false);
+    try {
+      const { data } = await api.post('/pharmacy', form);
+      onCreated({ ...form, pharmacy_id: data.pharmacy_id, is_verified: false });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,7 +100,7 @@ function CreatePharmacy({ onCreated }) {
             </div>
           </div>
           <button className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Creating…' : 'Create pharmacy profile'}
+            {loading ? <Spinner size="sm" label="Creating…" /> : 'Create pharmacy profile'}
           </button>
         </form>
       </div>
@@ -107,21 +112,41 @@ function Inventory({ pharmacyId }) {
   const [items, setItems] = useState([]);
   const [catalogue, setCatalogue] = useState([]);
   const [form, setForm] = useState({ medicine_id: '', price: '', quantity: '', low_stock_threshold: 10 });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const load = React.useCallback(() => {
-    api.get(`/pharmacy/${pharmacyId}/inventory`).then(({ data }) => setItems(data));
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [invRes, catRes] = await Promise.all([
+        api.get(`/pharmacy/${pharmacyId}/inventory`),
+        api.get('/medicines')
+      ]);
+      setItems(invRes.data);
+      setCatalogue(catRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [pharmacyId]);
 
   useEffect(() => {
     load();
-    api.get('/medicines').then(({ data }) => setCatalogue(data));
   }, [pharmacyId, load]);
 
   const submit = async (e) => {
     e.preventDefault();
-    await api.post(`/pharmacy/${pharmacyId}/inventory`, form);
-    setForm({ medicine_id: '', price: '', quantity: '', low_stock_threshold: 10 });
-    load();
+    setSaving(true);
+    try {
+      await api.post(`/pharmacy/${pharmacyId}/inventory`, form);
+      setForm({ medicine_id: '', price: '', quantity: '', low_stock_threshold: 10 });
+      await load();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = async (stockId) => {
@@ -151,31 +176,52 @@ function Inventory({ pharmacyId }) {
           <label className="label">Alert below</label>
           <input className="input" type="number" value={form.low_stock_threshold} onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })} />
         </div>
-        <button className="btn btn-primary">Save stock</button>
+        <button className="btn btn-primary" disabled={saving}>
+          {saving ? <Spinner size="sm" label="Saving…" /> : 'Save stock'}
+        </button>
       </form>
 
-      <div style={{ display: 'grid', gap: 10 }}>
-        {items.map((it) => (
-          <div key={it.stock_id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <strong>{it.name}</strong>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>{it.generic_name} · {it.category}</p>
+      {loading ? (
+        <LoadingState text="Loading pharmacy inventory…" />
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {items.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              No medicines currently added to this inventory.
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="badge badge-green">₹{it.price}</span>
-              <span className={`badge ${it.quantity <= it.low_stock_threshold ? 'badge-amber' : 'badge-green'}`}>{it.quantity} units</span>
-              <button className="btn btn-danger" onClick={() => remove(it.stock_id)}>Remove</button>
+          )}
+          {items.map((it) => (
+            <div key={it.stock_id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>{it.name}</strong>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>{it.generic_name} · {it.category}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="badge badge-green">₹{it.price}</span>
+                <span className={`badge ${it.quantity <= it.low_stock_threshold ? 'badge-amber' : 'badge-green'}`}>{it.quantity} units</span>
+                <button className="btn btn-danger" onClick={() => remove(it.stock_id)}>Remove</button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function LowStock({ pharmacyId }) {
   const [items, setItems] = useState([]);
-  useEffect(() => { api.get(`/pharmacy/${pharmacyId}/low-stock`).then(({ data }) => setItems(data)); }, [pharmacyId]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/pharmacy/${pharmacyId}/low-stock`)
+      .then(({ data }) => setItems(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [pharmacyId]);
+
+  if (loading) return <LoadingState text="Checking low stock levels…" />;
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -199,8 +245,15 @@ function DemandPrediction({ pharmacyId }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingCatalogue, setFetchingCatalogue] = useState(true);
 
-  useEffect(() => { api.get('/medicines').then(({ data }) => setCatalogue(data)); }, []);
+  useEffect(() => {
+    setFetchingCatalogue(true);
+    api.get('/medicines')
+      .then(({ data }) => setCatalogue(data))
+      .catch(console.error)
+      .finally(() => setFetchingCatalogue(false));
+  }, []);
 
   const runPrediction = async () => {
     if (!medicineId) return;
@@ -217,6 +270,8 @@ function DemandPrediction({ pharmacyId }) {
     }
   };
 
+  if (fetchingCatalogue) return <LoadingState text="Loading medicines catalogue…" />;
+
   return (
     <div>
       <div className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 20 }}>
@@ -227,20 +282,22 @@ function DemandPrediction({ pharmacyId }) {
             {catalogue.map((m) => <option key={m.medicine_id} value={m.medicine_id}>{m.name}</option>)}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={runPrediction} disabled={loading}>
-          {loading ? 'Predicting…' : 'Predict demand'}
+        <button className="btn btn-primary" onClick={runPrediction} disabled={loading || !medicineId}>
+          {loading ? <Spinner size="sm" label="Forecasting with AI…" /> : '📈 Predict demand'}
         </button>
       </div>
 
+      {loading && <LoadingState text="AI agent running trend regression & 7-day demand calculation…" />}
+
       {error && <div className="card" style={{ color: 'var(--color-red-500)' }}>{error}</div>}
 
-      {result && (
+      {result && !loading && (
         <div className="card">
           <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
             <Stat label="Trend" value={result.trend} />
-            <Stat label="Avg daily demand (next 7 days)" value={result.predicted_daily_avg} />
-            <Stat label="Predicted total (next 7 days)" value={result.predicted_total_next_period} />
-            <Stat label="Suggested restock units" value={result.recommend_restock_units} />
+            <Stat label="Avg daily demand (next 7 days)" value={result.predicted_daily_avg || result.predictions?.[0]?.predicted_quantity || '-'} />
+            <Stat label="Predicted total (next 7 days)" value={result.total_predicted_demand || result.predicted_total_next_period || '-'} />
+            <Stat label="Recommendation" value={result.reorder_recommendation || result.recommend_restock_units || 'Restock as per trend'} />
           </div>
           {result.forecast?.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -255,6 +312,24 @@ function DemandPrediction({ pharmacyId }) {
                   <tr key={f.date} style={{ borderTop: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '6px 0' }}>{f.date}</td>
                     <td>{f.predicted_quantity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {result.predictions?.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 12 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: 'var(--color-text-muted)' }}>
+                  <th style={{ padding: '6px 0' }}>Day</th>
+                  <th>Predicted quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.predictions.map((p, idx) => (
+                  <tr key={idx} style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <td style={{ padding: '6px 0' }}>Day {p.day || idx + 1}</td>
+                    <td>{p.predicted_quantity}</td>
                   </tr>
                 ))}
               </tbody>
@@ -277,15 +352,28 @@ function Stat({ label, value }) {
 
 function PharmacyReservations({ pharmacyId }) {
   const [items, setItems] = useState([]);
-  const load = React.useCallback(() => {
-    api.get(`/pharmacy/${pharmacyId}/reservations`).then(({ data }) => setItems(data));
+  const [loading, setLoading] = useState(true);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/pharmacy/${pharmacyId}/reservations`);
+      setItems(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [pharmacyId]);
+
   useEffect(() => { load(); }, [pharmacyId, load]);
 
   const updateStatus = async (id, status) => {
     await api.patch(`/reservations/${id}/status`, { status });
     load();
   };
+
+  if (loading) return <LoadingState text="Loading customer reservations…" />;
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -307,3 +395,4 @@ function PharmacyReservations({ pharmacyId }) {
     </div>
   );
 }
+
