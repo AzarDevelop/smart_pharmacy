@@ -53,10 +53,11 @@ exports.createReservation = async (req, res) => {
 exports.getMyReservations = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT r.*, m.name AS medicine_name, p.name AS pharmacy_name, p.address, p.phone
+      `SELECT r.*, m.name AS medicine_name, m.generic_name, p.name AS pharmacy_name, p.address, p.city, p.phone, pm.price
        FROM reservations r
        JOIN medicines m ON r.medicine_id = m.medicine_id
        JOIN pharmacies p ON r.pharmacy_id = p.pharmacy_id
+       LEFT JOIN pharmacy_medicines pm ON r.pharmacy_id = pm.pharmacy_id AND r.medicine_id = pm.medicine_id
        WHERE r.user_id = ? ORDER BY r.reserved_at DESC`,
       [req.user.user_id]
     );

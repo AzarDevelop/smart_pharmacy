@@ -17,7 +17,10 @@ export default function Navbar() {
       position: 'sticky', top: 0, zIndex: 10
     }}>
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link
+          to={user?.role === 'admin' ? '/admin' : user?.role === 'pharmacy' ? '/pharmacy' : '/'}
+          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+        >
           <div style={{
             width: 32, height: 32, borderRadius: 8, background: 'var(--color-teal-700)',
             color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: 'var(--font-display)'
@@ -26,13 +29,30 @@ export default function Navbar() {
         </Link>
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Link to="/" className="btn btn-ghost">Search</Link>
-          <Link to="/chat" className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span>🤖 AI Assistant</span>
-          </Link>
-          {user && <Link to="/reservations" className="btn btn-ghost">My Reservations</Link>}
-          {user && user.role === 'pharmacy' && <Link to="/pharmacy" className="btn btn-ghost">Pharmacy Dashboard</Link>}
-          {user && user.role === 'admin' && <Link to="/admin" className="btn btn-ghost">Admin</Link>}
+          {/* Only customers or unauthenticated users need customer search & AI assistant */}
+          {(!user || user.role === 'customer') && (
+            <>
+              <Link to="/" className="btn btn-ghost">Search</Link>
+              <Link to="/chat" className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span>🤖 AI Assistant</span>
+              </Link>
+            </>
+          )}
+
+          {/* Only customers need My Reservations */}
+          {user && user.role === 'customer' && (
+            <Link to="/reservations" className="btn btn-ghost">My Reservations</Link>
+          )}
+
+          {/* Pharmacy dashboard link for pharmacy owners */}
+          {user && user.role === 'pharmacy' && (
+            <Link to="/pharmacy" className="btn btn-ghost">Pharmacy Dashboard</Link>
+          )}
+
+          {/* Admin link for admin */}
+          {user && user.role === 'admin' && (
+            <Link to="/admin" className="btn btn-ghost" style={{ fontWeight: 600 }}>Admin Dashboard</Link>
+          )}
 
 
           {!user && (

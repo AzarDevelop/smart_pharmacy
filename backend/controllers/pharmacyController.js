@@ -194,10 +194,11 @@ exports.getPharmacyReservations = async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT r.*, u.name AS customer_name, u.phone AS customer_phone, m.name AS medicine_name
+      `SELECT r.*, u.name AS customer_name, u.phone AS customer_phone, m.name AS medicine_name, m.generic_name, pm.price
        FROM reservations r
        JOIN users u ON r.user_id = u.user_id
        JOIN medicines m ON r.medicine_id = m.medicine_id
+       LEFT JOIN pharmacy_medicines pm ON r.pharmacy_id = pm.pharmacy_id AND r.medicine_id = pm.medicine_id
        WHERE r.pharmacy_id = ? ORDER BY r.reserved_at DESC`,
       [id]
     );
